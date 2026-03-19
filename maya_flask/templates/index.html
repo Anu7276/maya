@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maya - Premium AI Assistant</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- PixiJS -->
+    <script src="https://pixijs.download/v8.1.5/pixi.min.js"></script>
+</head>
+<body>
+    <!-- PixiJS Canvas Container -->
+    <div id="pixi-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="loader-content">
+            <div class="maya-logo-large">Maya</div>
+            <div class="loading-bar-container">
+                <div id="loading-bar-fill"></div>
+            </div>
+            <div id="loading-progress-text">Initializing neural networks...</div>
+        </div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div class="maya-app-overlay">
+        <!-- Sidebar -->
+        <aside class="chat-box-overlay">
+            <header class="chat-header-minimal">
+                <div class="maya-name-mini">Maya</div>
+                <div class="header-actions">
+                    <button class="icon-btn-mini" id="mute-btn" title="Mute">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button class="icon-btn-mini" id="clear-btn" title="Clear Chat">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="messages-container-mini" id="chat-messages">
+                <div class="empty-state-mini">
+                    <p>Welcome back. I am Maya, your intelligent partner. How may I assist you today?</p>
+                </div>
+            </div>
+
+            <div class="input-section-mini">
+                <form id="chat-form" class="input-wrap-mini">
+                    <textarea id="chat-input" class="chat-input-mini" placeholder="Talk to Maya..." rows="1"></textarea>
+                    <button type="button" class="action-btn-mini" id="mic-btn">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                    <button type="submit" class="action-btn-mini" id="send-btn" style="display:none;">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Subtitles -->
+        <div class="subtitles-overlay" id="subtitles-container" style="display: none;">
+            <div class="subtitles-text" id="subtitles-text"></div>
+        </div>
+
+        <!-- Status & Emotion Badges -->
+        <div class="status-overlay">
+            <div class="diagnostics-toggle" id="diag-toggle" title="Neural Diagnostics">
+                <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div class="status-badge-mini" id="status-badge">Online</div>
+            <div class="emotion-badge-mini" id="emotion-badge">😊 neutral</div>
+        </div>
+
+        <!-- Neural Diagnostics Panel -->
+        <div class="diagnostics-panel" id="diag-panel">
+            <div class="diag-header">Neural Diagnostics</div>
+            <div class="diag-grid">
+                <div class="diag-item">
+                    <span class="diag-label">Emotion Intensity</span>
+                    <span class="diag-value" id="diag-emotion-int">0.50</span>
+                </div>
+                <div class="diag-item">
+                    <span class="diag-label">Neural State</span>
+                    <span class="diag-value" id="diag-state">Idle</span>
+                </div>
+                <div class="diag-item">
+                    <span class="diag-label">Response Time</span>
+                    <span class="diag-value" id="diag-latency">0ms</span>
+                </div>
+                <div class="diag-item-mini">
+                    <span class="diag-label-mini">Last Tool</span>
+                    <span class="diag-value-mini" id="diag-last-tool">-</span>
+                </div>
+                <div class="diag-plugin-trace" id="diag-plugin-trace">
+                    <!-- Dynamic trace entries -->
+                </div>
+                <div class="diag-item">
+                    <span class="diag-label">Token Stream</span>
+                    <span class="diag-value" id="diag-tokens">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

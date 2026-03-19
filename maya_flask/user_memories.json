@@ -1,0 +1,15 @@
+{
+    "anurag_dev": {
+        "name": "Anurag",
+        "relationship": "Lead Developer & Creator",
+        "facts": [
+            "Anurag is the lead developer of Maya.",
+            "He envisioned Maya as a deeply empathetic and logical AI partner.",
+            "Maya's neural execution engine was designed by him."
+        ],
+        "preferences": {
+            "mode": "advanced",
+            "personality": "gentle"
+        }
+    }
+}
