@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let GROQ_API_KEY = localStorage.getItem('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') || '';
 
     function promptForApiKey() {
-        const key = window.prompt('Enter your Groq API key', GROQ_API_KEY);
+        const key = window.prompt('Enter your Groq API key to activate Maya', GROQ_API_KEY);
         if (key && key.trim()) {
             GROQ_API_KEY = key.trim();
             localStorage.setItem('GROQ_API_KEY', GROQ_API_KEY);
@@ -107,6 +107,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .sort((a, b) => a.index - b.index)
                 .map(r => r.tex)
                 .filter(t => t !== null);
+        }
+
+        if (!GROQ_API_KEY) {
+            if (loadingText) loadingText.textContent = "Awaiting mental bridge (API Key)...";
+            const ok = promptForApiKey();
+            if (!ok) {
+                if (loadingText) loadingText.textContent = "Engine suspended. Key required.";
+                return; // Stop loading if key not provided
+            }
         }
 
         if (loadingText) loadingText.textContent = "All systems online.";
@@ -380,6 +389,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const startTime = Date.now();
 
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+
         try {
             const payload = {
                 messages: messages.map(m => ({ role: m.role === 'maya' ? 'assistant' : m.role, content: m.content })),
@@ -392,8 +404,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
+
             if (!response.ok) {
                 let errorMsg = `Request failed (${response.status})`;
                 const contentType = response.headers.get('content-type') || '';
@@ -409,6 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (e) {}
 
                 mayaBubble.textContent = errorMsg;
+                mayaBubble.classList.add('error');
                 updateStatus('Offline');
                 return;
             }
@@ -431,57 +448,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 buffer = lines.pop() || '';
 
                 for (const line of lines) {
-                    if (line.trim() === '') {
-                        currentEvent = '';
-                        continue;
-                    }
-                    if (line.startsWith('event: ')) {
-                        currentEvent = line.slice(7).trim();
-                    } else if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        if (currentEvent === 'token') {
-                            try {
-                                const parsed = JSON.parse(data);
+                    const trimmed = line.trim();
+                    if (trimmed === '') continue;
+
+                    if (trimmed.startsWith('event: ')) {
+                        currentEvent = trimmed.slice(7).trim();
+                    } else if (trimmed.startsWith('data: ')) {
+                        const data = trimmed.slice(6);
+                        
+                        try {
+                            const parsed = JSON.parse(data);
+                            
+                            if (currentEvent === 'token') {
                                 mayaText += parsed.token;
                                 tokenCount++;
                                 if (diagTokens) diagTokens.textContent = tokenCount;
-                                // Multi-line robust regex
+                                
+                                // Selective replacement for display
                                 const displayableText = mayaText.replace(/\[ACTION:[\s\S]*?\]/g, '').trim();
-                                mayaBubble.textContent = displayableText || '...';
+                                if (displayableText) {
+                                    mayaBubble.textContent = displayableText;
+                                    mayaBubble.classList.remove('working');
+                                }
                                 chatMessages.scrollTop = chatMessages.scrollHeight;
-                            } catch (e) {}
-                        } else if (currentEvent === 'thinking') {
-                            try {
-                                const think = JSON.parse(data);
-                                mayaBubble.textContent = `Maya is ${think.message.toLowerCase()}...`;
+                            } else if (currentEvent === 'thinking') {
+                                // Only update text if we aren't already displaying tokens
+                                if (mayaBubble.textContent === '...' || mayaBubble.classList.contains('working')) {
+                                    mayaBubble.textContent = `Maya is ${parsed.message.toLowerCase()}...`;
+                                }
                                 mayaBubble.classList.add('working');
-                            } catch (e) {}
-                        } else if (currentEvent === 'actions') {
-                            try {
-                                const actionResults = JSON.parse(data);
-                                renderActionResults(mayaBubble, actionResults);
-                            } catch (e) {
-                                console.error("Error parsing actions:", e);
-                            }
-                        } else if (currentEvent === 'error') {
-                            try {
-                                const err = JSON.parse(data);
-                                mayaBubble.textContent = err.error || "Something went wrong while generating the response.";
+                            } else if (currentEvent === 'actions') {
+                                renderActionResults(mayaBubble, parsed);
+                            } else if (currentEvent === 'error') {
+                                console.error("[SSE ERROR]", parsed);
+                                mayaBubble.textContent = parsed.error || "Communication interrupted.";
+                                mayaBubble.classList.add('error');
                                 updateStatus('Offline');
-                            } catch (e) {
-                                mayaBubble.textContent = "Something went wrong while generating the response.";
-                                updateStatus('Offline');
-                            }
-                        } else if (currentEvent === 'metadata') {
-                            try {
-                                const meta = JSON.parse(data);
-                                AIEmotion = meta.sentiment || 'neutral';
-                                const intensity = meta.score || (AIEmotion === 'neutral' ? 0.5 : 0.8);
+                            } else if (currentEvent === 'metadata') {
+                                AIEmotion = parsed.sentiment || 'neutral';
+                                const intensity = parsed.score || (AIEmotion === 'neutral' ? 0.5 : 0.8);
                                 if (diagEmotionInt) diagEmotionInt.textContent = intensity.toFixed(2);
                                 if (emotionBadge) {
                                     emotionBadge.innerHTML = `${AIEmotion === 'happy' ? '😄' : AIEmotion === 'sad' ? '🥺' : AIEmotion === 'angry' ? '😡' : AIEmotion === 'anxious' ? '😰' : AIEmotion === 'lonely' ? '😔' : '😊'} ${AIEmotion}`;
                                 }
-                            } catch (e) {}
+                            }
+                        } catch (e) {
+                            console.warn("Malformed SSE data chunk:", data, e);
                         }
                     }
                 }
@@ -656,14 +668,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isMuted && synth.speaking) synth.cancel();
     });
 
-    if (keyBtn) {
-        keyBtn.addEventListener('click', () => {
-            const ok = promptForApiKey();
-            if (ok) {
-                appendMessage('maya', 'API key saved. You can continue chatting.');
-            }
-        });
-    }
 
     clearBtn.addEventListener('click', () => {
         chatMessages.innerHTML = '';

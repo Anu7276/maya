@@ -203,24 +203,35 @@ def chat():
             while turn < max_turns:
                 turn += 1
                 maya_response_text = ""
+                logging.info(f"[AGENT] Starting turn {turn}/{max_turns}")
                 
                 # 1. Get LLM Completion
-                stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=current_messages,
-                    temperature=0.7,
-                    stream=True,
-                )
-                
+                try:
+                    stream = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=current_messages,
+                        temperature=0.7,
+                        stream=True,
+                    )
+                except Exception as e:
+                    logging.error(f"[AGENT] LLM Connection Error: {e}")
+                    yield f"event: error\ndata: {json.dumps({'error': f'Intelligence connection failed: {str(e)}'})}\n\n"
+                    return
+
                 for chunk in stream:
-                    token = chunk.choices[0].delta.content
-                    if token:
-                        maya_response_text += token
-                        yield f"event: token\ndata: {json.dumps({'token': token})}\n\n"
+                    try:
+                        token = chunk.choices[0].delta.content
+                        if token:
+                            maya_response_text += token
+                            yield f"event: token\ndata: {json.dumps({'token': token})}\n\n"
+                    except (IndexError, AttributeError) as e:
+                        # Some chunks might not contain content (e.g., finish_reason)
+                        continue
                 
                 # 2. Strict Tool Gate & Execution
                 action_results = []
                 if force_tool_mode:
+                    logging.info(f"[AGENT] Parsing actions from turn {turn} response...")
                     action_results = engine.execute_all(maya_response_text)
                     
                     # Enforcement: if LLM skipped the tag on first turn
@@ -229,6 +240,7 @@ def chat():
                         action_results = engine.execute_all(forced_tag)
 
                 if action_results:
+                    logging.info(f"[AGENT] Turn {turn} produced {len(action_results)} action results.")
                     # Stream results to frontend
                     yield f"event: actions\ndata: {json.dumps(action_results)}\n\n"
                     
@@ -246,18 +258,19 @@ def chat():
                     current_messages.append({"role": "user", "content": f"SYSTEM (INTERNAL): Tool Results Follow:\n{tool_output_summary}\n\nPlease analyze these results and finish your response to the user. Do not repeat your setup or previous part of the answer."})
                     
                     # Continue loop to let LLM respond to results
-                    logging.info(f"[AGENT] Multi-step turn {turn} complete. Continuing loop...")
+                    logging.info(f"[AGENT] Continuing to next turn...")
                     continue
                 else:
-                    # No more actions, end the turn
+                    # No more actions or none detected, end the turn
+                    logging.info(f"[AGENT] No further actions detected. Ending response loop.")
                     break
 
             # 4. Final Metadata
             yield f"event: metadata\ndata: {json.dumps({'sentiment': emotion, 'score': intensity})}\n\n"
                     
         except Exception as e:
-            logging.error(f"Groq Agentic Error: {e}")
-            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+            logging.error(f"Groq Agentic Critical Error: {e}")
+            yield f"event: error\ndata: {json.dumps({'error': f'Communication error: {str(e)}'})}\n\n"
 
 
     return Response(generate(), mimetype='text/event-stream')
