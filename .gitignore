@@ -16,3 +16,5 @@ traceback.log
 # OS / editor
 desktop.ini
 Thumbs.db
+
+.vercel
