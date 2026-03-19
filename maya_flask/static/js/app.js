@@ -375,7 +375,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            if (!response.ok) {
+                let errorMsg = `Request failed (${response.status})`;
+                const contentType = response.headers.get('content-type') || '';
 
+                try {
+                    if (contentType.includes('application/json')) {
+                        const err = await response.json();
+                        errorMsg = err.error || err.message || errorMsg;
+                    } else {
+                        const text = await response.text();
+                        if (text) errorMsg = text;
+                    }
+                } catch (e) {}
+
+                mayaBubble.textContent = errorMsg;
+                updateStatus('Offline');
+                return;
+            }
+
+            if (!response.body) {
+                throw new Error('No response body received from /chat');
+            }
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -422,6 +443,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 renderActionResults(mayaBubble, actionResults);
                             } catch (e) {
                                 console.error("Error parsing actions:", e);
+                            }
+                        } else if (currentEvent === 'error') {
+                            try {
+                                const err = JSON.parse(data);
+                                mayaBubble.textContent = err.error || "Something went wrong while generating the response.";
+                                updateStatus('Offline');
+                            } catch (e) {
+                                mayaBubble.textContent = "Something went wrong while generating the response.";
+                                updateStatus('Offline');
                             }
                         } else if (currentEvent === 'metadata') {
                             try {
@@ -664,3 +694,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+
+
+
+
+
