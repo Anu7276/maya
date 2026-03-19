@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const micBtn = document.getElementById('mic-btn');
+    const keyBtn = document.getElementById('key-btn');
     const muteBtn = document.getElementById('mute-btn');
     const clearBtn = document.getElementById('clear-btn');
     const subtitlesContainer = document.getElementById('subtitles-container');
@@ -27,6 +28,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Config
     let GROQ_API_KEY = localStorage.getItem('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') || '';
+
+    function promptForApiKey() {
+        const key = window.prompt('Enter your Groq API key', GROQ_API_KEY);
+        if (key && key.trim()) {
+            GROQ_API_KEY = key.trim();
+            localStorage.setItem('GROQ_API_KEY', GROQ_API_KEY);
+            return true;
+        }
+        return false;
+    }
 
     // --- 2. Animation System ---
     const STATE = {
@@ -344,6 +355,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const text = chatInput.value.trim();
         if (!text || isStreaming) return;
 
+        if (!GROQ_API_KEY) {
+            const didSet = promptForApiKey();
+            if (!didSet) {
+                appendMessage('maya', 'Missing API key. Click the key icon to set it.');
+                return;
+            }
+        }
+
         chatInput.value = '';
         chatInput.style.height = 'auto';
         isStreaming = true;
@@ -636,6 +655,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         muteBtn.innerHTML = isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
         if (isMuted && synth.speaking) synth.cancel();
     });
+
+    if (keyBtn) {
+        keyBtn.addEventListener('click', () => {
+            const ok = promptForApiKey();
+            if (ok) {
+                appendMessage('maya', 'API key saved. You can continue chatting.');
+            }
+        });
+    }
 
     clearBtn.addEventListener('click', () => {
         chatMessages.innerHTML = '';
