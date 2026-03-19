@@ -28,16 +28,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Config
     let GROQ_API_KEY = localStorage.getItem('GROQ_API_KEY') || '';
 
-    function ensureApiKey() {
-        if (GROQ_API_KEY) return true;
-        const entered = window.prompt('Enter your Groq API key');
-        if (!entered) return false;
-        GROQ_API_KEY = entered.trim();
-        if (!GROQ_API_KEY) return false;
-        localStorage.setItem('GROQ_API_KEY', GROQ_API_KEY);
-        return true;
-    }
-
     // --- 2. Animation System ---
     const STATE = {
         IDLE: "idle",
@@ -354,11 +344,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const text = chatInput.value.trim();
         if (!text || isStreaming) return;
 
-        if (!ensureApiKey()) {
-            appendMessage('maya', 'Groq API key missing. Please add it when prompted and try again.');
-            return;
-        }
-
         chatInput.value = '';
         chatInput.style.height = 'auto';
         isStreaming = true;
@@ -377,14 +362,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
         try {
+            const payload = {
+                messages: messages.map(m => ({ role: m.role === 'maya' ? 'assistant' : m.role, content: m.content })),
+                user_id: 'anurag_dev' // Persistent User ID
+            };
+            if (GROQ_API_KEY) {
+                payload.apiKey = GROQ_API_KEY;
+            }
+
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: messages.map(m => ({ role: m.role === 'maya' ? 'assistant' : m.role, content: m.content })),
-                    apiKey: GROQ_API_KEY,
-                    user_id: 'anurag_dev' // Persistent User ID
-                })
+                body: JSON.stringify(payload)
             });
 
             const reader = response.body.getReader();

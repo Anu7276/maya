@@ -164,10 +164,12 @@ def chat():
     mem_str = f"Memory of {user_id}: {long_term_memory['name']} has relationship {long_term_memory['relationship']}. Facts: {long_term_memory['facts']}."
     messages.insert(0, {"role": "system", "content": mem_str})
 
-    api_key = data.get('apiKey')
+    api_key = data.get('apiKey') or os.getenv("GROQ_API_KEY")
     
-    if not messages or not api_key:
-        return jsonify({"error": "Missing messages or API key"}), 400
+    if not messages:
+        return jsonify({"error": "Missing messages"}), 400
+    if not api_key:
+        return jsonify({"error": "Missing API key. Provide apiKey or set GROQ_API_KEY."}), 400
 
     client = Groq(api_key=api_key)
     last_user_message = messages[-1]['content']

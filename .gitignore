@@ -12,6 +12,9 @@ env/
 user_memories.json
 output.log
 traceback.log
+.env
+.env.*
+!.env.example
 
 # OS / editor
 desktop.ini
