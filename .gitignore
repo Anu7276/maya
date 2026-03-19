@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Runtime/local data
+user_memories.json
+output.log
+traceback.log
+
+# OS / editor
+desktop.ini
+Thumbs.db
