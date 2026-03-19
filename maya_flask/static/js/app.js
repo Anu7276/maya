@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentEmotion = 'neutral';
     
     // Config
-    let GROQ_API_KEY = localStorage.getItem('GROQ_API_KEY') || '';
+    let GROQ_API_KEY = localStorage.getItem('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') || '';
 
     // --- 2. Animation System ---
     const STATE = {
