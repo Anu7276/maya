@@ -620,43 +620,244 @@ body {
     box-shadow: 0 10px 20px rgba(244, 114, 182, 0.1);
 }
 
+/* Mobile Toggle Button - Hidden on Desktop */
+.mobile-toggle-btn {
+    display: none;
+}
+
 /* === MOBILE RESPONSIVENESS === */
 @media (max-width: 768px) {
-    .chat-box-overlay {
-        top: 0; left: 0; bottom: 0;
-        width: 100%;
-        border-radius: 0;
-        z-index: 100;
+    .mobile-toggle-btn {
+        display: flex;
     }
-    
+
     .maya-app-overlay {
         flex-direction: column;
     }
+
+    /* Floating Glass Bottom Drawer so Maya 3D Avatar remains fully visible */
+    .chat-box-overlay {
+        position: fixed;
+        top: auto;
+        bottom: 12px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        height: 48vh;
+        max-height: 420px;
+        border-radius: 24px;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.85);
+        backdrop-filter: blur(30px) saturate(180%);
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+        transition: height 0.4s cubic-bezier(0.19, 1, 0.22, 1), transform 0.4s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.4s ease;
+    }
     
+    /* Minimized state to view Maya full-screen */
+    .chat-box-overlay.minimized {
+        height: 64px;
+        max-height: 64px;
+        overflow: hidden;
+    }
+
+    .chat-box-overlay.minimized .messages-container-mini,
+    .chat-box-overlay.minimized .input-section-mini {
+        display: none !important;
+    }
+
+    .chat-box-overlay.minimized .chat-header-minimal {
+        border-bottom: none;
+        padding: 1rem 1.25rem;
+    }
+
+    .chat-box-overlay.minimized #toggle-chat-btn i {
+        transform: rotate(180deg);
+    }
+
+    .chat-box-overlay.hidden {
+        transform: translateY(120%);
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    .chat-header-minimal {
+        padding: 1.25rem;
+    }
+
+    .maya-name-mini {
+        font-size: 1.4rem;
+    }
+
+    .messages-container-mini {
+        padding: 1rem 1.25rem;
+        gap: 1rem;
+    }
+
+    .input-section-mini {
+        padding: 1rem 1.25rem;
+    }
+
     .subtitles-overlay {
-        bottom: 15%;
+        bottom: calc(48vh + 20px);
         min-width: 90%;
-        padding: 0 1rem;
+        max-width: 92%;
+        padding: 0;
+        z-index: 90;
+    }
+
+    .subtitles-text {
+        font-size: 1.1rem;
+        padding: 0.85rem 1.5rem;
+        border-radius: 18px;
     }
     
     .status-overlay {
-        top: 1rem;
-        right: 1rem;
+        top: 12px;
+        right: 12px;
         scale: 0.9;
+        z-index: 102;
     }
     
     .diagnostics-panel {
-        width: 90%;
-        right: 5%;
-        left: 5%;
-        top: 4rem;
+        width: calc(100% - 24px);
+        right: 12px;
+        left: 12px;
+        top: 56px;
+        max-height: 65vh;
+        overflow-y: auto;
+        z-index: 105;
     }
-
-    .maya-name-mini { font-size: 1.4rem; }
 }
 
 @media (max-width: 480px) {
-    .messages-container-mini { padding: 1.25rem; }
-    .input-section-mini { padding: 1.25rem; }
-    .subtitles-text { font-size: 1.1rem; padding: 1rem; }
+    .chat-box-overlay {
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        height: 45vh;
+        max-height: 380px;
+        border-radius: 20px;
+    }
+    .messages-container-mini { padding: 0.85rem 1rem; }
+    .input-section-mini { padding: 0.85rem 1rem; }
+    .subtitles-overlay { bottom: calc(45vh + 16px); }
+    .subtitles-text { font-size: 1rem; padding: 0.75rem 1.25rem; }
 }
+
+/* === API KEY MODAL === */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 3, 5, 0.85);
+    backdrop-filter: blur(15px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    animation: fade-in-up 0.3s ease-out;
+}
+
+.modal-card {
+    background: rgba(15, 15, 25, 0.95);
+    border: 1px solid var(--glass-border-bright);
+    border-radius: 24px;
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-header h3 i {
+    color: var(--accent-primary);
+}
+
+.modal-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.modal-input-wrap {
+    display: flex;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 6px 12px;
+    align-items: center;
+}
+
+.modal-input-wrap:focus-within {
+    border-color: var(--accent-primary);
+}
+
+.modal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 8px 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-btn-primary {
+    flex: 1;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    border: none;
+    border-radius: 14px;
+    padding: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.modal-btn-secondary {
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    border-radius: 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-btn-secondary:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+

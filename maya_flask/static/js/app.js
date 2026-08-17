@@ -26,13 +26,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isMuted = false;
     let currentEmotion = 'neutral';
     
-    // Config
-    let GROQ_API_KEY = localStorage.getItem('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') || '';
+    // Retrieve stored browser data if any, but do not clear on refresh
+    let GROQ_API_KEY = localStorage.getItem('GROQ_API_KEY') || '';
+
+    function sanitizeApiKey(key) {
+        if (!key) return '';
+        return key.replace(/['"\s]/g, '').trim();
+    }
 
     function promptForApiKey() {
-        const key = window.prompt('Enter your Groq API key to activate Maya', GROQ_API_KEY);
-        if (key && key.trim()) {
-            GROQ_API_KEY = key.trim();
+        const raw = window.prompt('Enter your Groq API key to activate Maya', GROQ_API_KEY);
+        const key = sanitizeApiKey(raw);
+        if (key) {
+            GROQ_API_KEY = key;
             localStorage.setItem('GROQ_API_KEY', GROQ_API_KEY);
             return true;
         }
@@ -109,22 +115,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .filter(t => t !== null);
         }
 
-        if (!GROQ_API_KEY) {
-            if (loadingText) loadingText.textContent = "Awaiting mental bridge (API Key)...";
-            const ok = promptForApiKey();
-            if (!ok) {
-                if (loadingText) loadingText.textContent = "Engine suspended. Key required.";
-                return; // Stop loading if key not provided
-            }
-        }
+        // API keys are optional on client as they are set on backend .env
+        if (loadingText) loadingText.textContent = "Connecting to neural pathways...";
 
-        if (loadingText) loadingText.textContent = "All systems online.";
+        if (loadingText) loadingText.textContent = "Memory synced. All systems online.";
+
         setTimeout(() => {
             if (loadingOverlay) {
                 loadingOverlay.style.opacity = '0';
                 setTimeout(() => loadingOverlay.remove(), 1000);
             }
             transitionTo(STATE.IDLE);
+
+            // Greet user automatically as soon as Maya interface appears
+            setTimeout(() => {
+                const greeting = "Hello! मैं Maya हूँ।";
+                appendMessage('maya', greeting);
+                handleAIResponse(greeting, "happy");
+            }, 600);
         }, 800);
     }
 
@@ -141,11 +149,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     function resizeSprite() {
         if (!mayaSprite) return;
         mayaSprite.x = app.screen.width / 2;
-        mayaSprite.y = app.screen.height / 2;
-        const scaleH = (app.screen.height * 0.95) / 1024;
-        const scaleW = (app.screen.width * 0.95) / 1536;
-        const finalScale = Math.max(scaleH, scaleW);
-        mayaSprite.scale.set(finalScale);
+        if (app.screen.width <= 768) {
+            // Position Maya higher on mobile screen so face/avatar is clear above the bottom sheet
+            mayaSprite.y = app.screen.height * 0.38;
+            const scaleH = (app.screen.height * 0.85) / 1024;
+            const scaleW = (app.screen.width * 0.95) / 1536;
+            const finalScale = Math.max(scaleH, scaleW);
+            mayaSprite.scale.set(finalScale);
+        } else {
+            mayaSprite.y = app.screen.height / 2;
+            const scaleH = (app.screen.height * 0.95) / 1024;
+            const scaleW = (app.screen.width * 0.95) / 1536;
+            const finalScale = Math.max(scaleH, scaleW);
+            mayaSprite.scale.set(finalScale);
+        }
     }
     window.addEventListener('resize', resizeSprite);
     resizeSprite();
@@ -219,13 +236,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusBadge.className = `status-badge-mini ${status.toLowerCase()}`;
     }
 
+    // Strip markdown symbols and emojis from AI responses so they never appear in chat bubbles
+    function stripMarkdown(text) {
+        return text
+            .replace(/\*\*\*(.*?)\*\*\*/g, '$1')   // ***bold italic***
+            .replace(/\*\*(.*?)\*\*/g, '$1')         // **bold**
+            .replace(/\*(.*?)\*/g, '$1')             // *italic*
+            .replace(/_{2}(.*?)_{2}/g, '$1')         // __underline__
+            .replace(/_(.*?)_/g, '$1')               // _italic_
+            .replace(/^#{1,6}\s+/gm, '')             // ### headings
+            .replace(/^[\-\*]\s+/gm, '• ')           // - bullet → • bullet
+            .replace(/^\d+\.\s+/gm, '')              // 1. numbered list
+            .replace(/`{3}[\s\S]*?`{3}/g, '')        // ```code blocks```
+            .replace(/`([^`]+)`/g, '$1')             // `inline code`
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link](url)
+            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E6}-\u{1F1FF}]/gu, '') // Strip all emojis
+            .replace(/\n{3,}/g, '\n\n')              // collapse excess newlines
+            .trim();
+    }
+
     function appendMessage(role, content) {
         const rowDiv = document.createElement('div');
         rowDiv.className = `message-row-mini ${role}`;
         
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble-mini';
-        bubble.textContent = content;
+        // Strip markdown for maya messages; user messages shown as-is
+        bubble.textContent = role === 'maya' ? stripMarkdown(content) : content;
         
         rowDiv.appendChild(bubble);
         chatMessages.appendChild(rowDiv);
@@ -236,6 +273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         return bubble;
     }
+
 
     function showSubtitles(text) {
         subtitlesText.textContent = text;
@@ -276,68 +314,73 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const synth = window.speechSynthesis;
     let voices = [];
+    let mayaVoiceName = ''; // Lock the voice by name instead of storing the object reference
     let subtitleTimeout = null;
 
-    function loadVoices() {
-        voices = synth.getVoices();
+    function pickMayaVoice() {
+        const all = synth.getVoices();
+        if (!all.length) return;
+        voices = all;
+
+        // Priority: Microsoft Neerja (Hindi Natural) -> any Hindi voice -> English voices (Zira, Aria, Jenny)
+        const bestVoice =
+            all.find(v => v.name === 'Microsoft Neerja Online (Natural) - Hindi (India)') ||
+            all.find(v => v.name === 'Microsoft Neerja - Hindi (India)') ||
+            all.find(v => v.lang.startsWith('hi') && v.name.toLowerCase().includes('neerja')) ||
+            all.find(v => v.lang.startsWith('hi') && v.name.includes('Google')) ||
+            all.find(v => v.lang.startsWith('hi')) || // Any Hindi voice
+            all.find(v => v.name === 'Microsoft Zira - English (United States)') ||
+            all.find(v => v.name === 'Microsoft Aria Online (Natural) - English (United States)') ||
+            all.find(v => v.name === 'Microsoft Jenny Online (Natural) - English (United States)') ||
+            all.find(v => v.name.toLowerCase().includes('zira')) ||
+            all.find(v => v.name.toLowerCase().includes('aria')) ||
+            all.find(v => v.lang.startsWith('en')) ||
+            all[0];
+
+        if (bestVoice) {
+            mayaVoiceName = bestVoice.name;
+            console.log(`[VOICE] Maya locked name to: "${mayaVoiceName}" (${bestVoice.lang})`);
+        } else {
+            console.warn('[VOICE] No voice found — using browser default.');
+        }
     }
-    loadVoices();
+
+    pickMayaVoice();
     if (synth.onvoiceschanged !== undefined) {
-        synth.onvoiceschanged = loadVoices;
+        synth.onvoiceschanged = pickMayaVoice;
     }
 
     function speakText(text) {
         if (isMuted) return;
-        
-        // Ensure voices are loaded
-        if (voices.length === 0) {
-            voices = synth.getVoices();
+
+        // Dynamically resolve the voice object from the latest browser voice array
+        const freshVoices = synth.getVoices();
+        let activeVoice = freshVoices.find(v => v.name === mayaVoiceName);
+
+        if (!activeVoice && freshVoices.length > 0) {
+            // Re-evaluate to lock the best available name
+            pickMayaVoice();
+            activeVoice = freshVoices.find(v => v.name === mayaVoiceName) || freshVoices[0];
         }
 
         synth.cancel();
-        // Multi-line robust regex
         const cleanText = text.replace(/\[ACTION:[\s\S]*?\]/g, '').trim();
-        console.log(`[TTS] Cleaning text for speech: "${cleanText}"`);
-        if (!cleanText) {
-            console.warn("[TTS] No speakable text found after cleaning.");
-            return;
-        }
+        if (!cleanText) return;
 
-        // Small delay to ensure synth.cancel() fully clears the audio buffer
         setTimeout(() => {
             const utterance = new SpeechSynthesisUtterance(cleanText);
-            const isHindi = /[\u0900-\u097F]/.test(cleanText);
-            
-            let preferredVoice;
-            if (isHindi) {
-                // Priority: 1. Microsoft Neerja (Edge), 2. Any 'Natural'/ 'Online' Hindi, 3. Google Hindi
-                preferredVoice = voices.find(v => v.lang.startsWith('hi') && v.name.toLowerCase().includes('neerja')) ||
-                                 voices.find(v => v.lang.startsWith('hi') && (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online'))) ||
-                                 voices.find(v => v.lang.startsWith('hi') && v.name.includes('Google')) ||
-                                 voices.find(v => v.lang.startsWith('hi')) ||
-                                 voices[0];
-                utterance.lang = 'hi-IN';
+
+            if (activeVoice) {
+                utterance.voice = activeVoice;
+                utterance.lang = activeVoice.lang;
+                console.log(`[TTS] Speaking with: "${activeVoice.name}" (${activeVoice.lang})`);
             } else {
-                // Priority: 1. Microsoft Aria/Sonia (Natural), 2. Any 'Natural'/ 'Online' English
-                preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online'))) ||
-                                 voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) ||
-                                 voices.find(v => v.lang.startsWith('en')) ||
-                                 voices[0];
-                utterance.lang = 'en-US';
+                utterance.lang = 'hi-IN';
             }
-            
-            if (preferredVoice) {
-                if (isHindi && !preferredVoice.name.toLowerCase().includes('neerja')) {
-                    console.warn(`[VOICE] Neerja not found. Using fallback: ${preferredVoice.name}. Use Microsoft Edge for the best experience!`);
-                } else {
-                    console.log(`[VOICE] Selected: ${preferredVoice.name} (${preferredVoice.lang})`);
-                }
-                utterance.voice = preferredVoice;
-            }
-            
+
             // Soft & Natural Tuning
-            utterance.pitch = 1.05; // Slightly higher for feminine/soft resonance
-            utterance.rate = 0.88;  // Natural human pacing
+            utterance.pitch = 1.05;
+            utterance.rate = 0.88;
             utterance.volume = 1.0;
 
             utterance.onstart = () => {
@@ -356,21 +399,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             synth.speak(utterance);
-        }, 100); 
+        }, 100);
     }
+
+
 
     // --- 5. Chat Communication ---
     async function sendChat() {
         const text = chatInput.value.trim();
         if (!text || isStreaming) return;
 
-        if (!GROQ_API_KEY) {
-            const didSet = promptForApiKey();
-            if (!didSet) {
-                appendMessage('maya', 'Missing API key. Click the key icon to set it.');
-                return;
-            }
-        }
+        // GROQ_API_KEY is optional on client if set on backend .env
 
         chatInput.value = '';
         chatInput.style.height = 'auto';
@@ -397,9 +436,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 messages: messages.map(m => ({ role: m.role === 'maya' ? 'assistant' : m.role, content: m.content })),
                 user_id: 'anurag_dev' // Persistent User ID
             };
-            if (GROQ_API_KEY) {
-                payload.apiKey = GROQ_API_KEY;
-            }
 
             const response = await fetch('/chat', {
                 method: 'POST',
@@ -465,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (diagTokens) diagTokens.textContent = tokenCount;
                                 
                                 // Selective replacement for display
-                                const displayableText = mayaText.replace(/\[ACTION:[\s\S]*?\]/g, '').trim();
+                                const displayableText = stripMarkdown(mayaText.replace(/\[ACTION:[\s\S]*?\]/g, '').trim());
                                 if (displayableText) {
                                     mayaBubble.textContent = displayableText;
                                     mayaBubble.classList.remove('working');
@@ -676,6 +712,76 @@ document.addEventListener('DOMContentLoaded', async () => {
         hideSubtitles();
         transitionTo(STATE.IDLE);
     });
+
+    // --- API Key Modal Event Handlers ---
+    const keyModal = document.getElementById('key-modal');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const saveKeyBtn = document.getElementById('save-key-btn');
+    const clearKeyBtn = document.getElementById('clear-key-btn');
+    const closeKeyModal = document.getElementById('close-key-modal');
+    const toggleKeyVis = document.getElementById('toggle-key-vis');
+
+    if (keyBtn && keyModal) {
+        keyBtn.addEventListener('click', () => {
+            if (apiKeyInput) apiKeyInput.value = GROQ_API_KEY;
+            keyModal.style.display = 'flex';
+            if (apiKeyInput) apiKeyInput.focus();
+        });
+    }
+
+    if (closeKeyModal) {
+        closeKeyModal.addEventListener('click', () => {
+            keyModal.style.display = 'none';
+        });
+    }
+
+    if (saveKeyBtn) {
+        saveKeyBtn.addEventListener('click', () => {
+            const val = apiKeyInput ? sanitizeApiKey(apiKeyInput.value) : '';
+            GROQ_API_KEY = val;
+            if (val) {
+                localStorage.setItem('GROQ_API_KEY', val);
+            } else {
+                localStorage.removeItem('GROQ_API_KEY');
+            }
+            keyModal.style.display = 'none';
+        });
+    }
+
+    if (clearKeyBtn) {
+        clearKeyBtn.addEventListener('click', () => {
+            GROQ_API_KEY = '';
+            localStorage.removeItem('GROQ_API_KEY');
+            if (apiKeyInput) apiKeyInput.value = '';
+        });
+    }
+
+    if (toggleKeyVis) {
+        toggleKeyVis.addEventListener('click', () => {
+            if (!apiKeyInput) return;
+            const isPass = apiKeyInput.type === 'password';
+            apiKeyInput.type = isPass ? 'text' : 'password';
+            toggleKeyVis.innerHTML = isPass ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+        });
+    }
+
+    if (keyModal) {
+        keyModal.addEventListener('click', (e) => {
+            if (e.target === keyModal) {
+                keyModal.style.display = 'none';
+            }
+        });
+    }
+
+    const toggleChatBtn = document.getElementById('toggle-chat-btn');
+    if (toggleChatBtn) {
+        toggleChatBtn.addEventListener('click', () => {
+            const sidebar = document.querySelector('.chat-box-overlay');
+            if (sidebar) {
+                sidebar.classList.toggle('minimized');
+            }
+        });
+    }
 
     diagToggle.addEventListener('click', () => {
         diagPanel.classList.toggle('active');

@@ -35,11 +35,15 @@
             <header class="chat-header-minimal">
                 <div class="maya-name-mini">Maya</div>
                 <div class="header-actions">
+
                     <button class="icon-btn-mini" id="mute-btn" title="Mute">
                         <i class="fa-solid fa-volume-high"></i>
                     </button>
                     <button class="icon-btn-mini" id="clear-btn" title="Clear Chat">
                         <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                    <button class="icon-btn-mini mobile-toggle-btn" id="toggle-chat-btn" title="Toggle Chat View">
+                        <i class="fa-solid fa-chevron-down"></i>
                     </button>
                 </div>
             </header>
@@ -104,6 +108,25 @@
                     <span class="diag-label">Token Stream</span>
                     <span class="diag-value" id="diag-tokens">0</span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Modal -->
+    <div id="key-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-key"></i> Groq API Key Settings</h3>
+                <button class="icon-btn-mini" id="close-key-modal" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="modal-desc">Enter your Groq API key (`gsk_...`) to activate Maya's AI. Key is stored locally in your browser and is optional if set on server.</p>
+            <div class="modal-input-wrap">
+                <input type="password" id="api-key-input" placeholder="gsk_..." class="modal-input" autocomplete="off" />
+                <button id="toggle-key-vis" class="icon-btn-mini" type="button" title="Toggle visibility"><i class="fa-solid fa-eye"></i></button>
+            </div>
+            <div class="modal-actions">
+                <button id="save-key-btn" class="modal-btn-primary" type="button">Save Key</button>
+                <button id="clear-key-btn" class="modal-btn-secondary" type="button">Clear</button>
             </div>
         </div>
     </div>
