@@ -325,6 +325,9 @@ def chat():
                         if "invalid_api_key" in err_str or "unauthorized" in err_str or "401" in err_str or "invalid api key" in err_str:
                             logging.error(f"[AGENT] Groq authentication failure: {e}. Breaking loop to fallback immediately.")
                             break
+                        if "rate limit" in err_str or "429" in err_str or "tokens per minute" in err_str:
+                            logging.warning(f"[AGENT] Groq rate limit reached: {e}. Switching to Gemini fallback.")
+                            break
                         logging.warning(f"[AGENT] Model {model_name} failed ({e}). Trying next fallback model...")
 
                 is_gemini = False
@@ -354,15 +357,35 @@ def chat():
                             # Handle potential safety block exceptions
                             continue
                 else:
-                    for chunk in stream:
-                        try:
-                            token = chunk.choices[0].delta.content
-                            if token:
-                                maya_response_text += token
-                                yield f"event: token\ndata: {json.dumps({'token': token})}\n\n"
-                        except (IndexError, AttributeError) as e:
-                            # Some chunks might not contain content (e.g., finish_reason)
-                            continue
+                    try:
+                        for chunk in stream:
+                            try:
+                                token = chunk.choices[0].delta.content
+                                if token:
+                                    maya_response_text += token
+                                    yield f"event: token\ndata: {json.dumps({'token': token})}\n\n"
+                            except (IndexError, AttributeError):
+                                # Some chunks might not contain content (e.g., finish_reason)
+                                continue
+                    except Exception as e:
+                        err_str = str(e).lower()
+                        if "rate limit" not in err_str and "429" not in err_str and "tokens per minute" not in err_str:
+                            raise
+
+                        logging.warning(f"[AGENT] Groq stream hit a rate limit: {e}. Switching to Gemini fallback.")
+                        gemini_stream = call_gemini_fallback(current_messages, system_prompt)
+                        if not gemini_stream:
+                            yield f"event: error\ndata: {json.dumps({'error': 'Groq is rate-limited and Gemini is currently unavailable. Please try again shortly.'})}\n\n"
+                            return
+
+                        for chunk in gemini_stream:
+                            try:
+                                token = chunk.text
+                                if token:
+                                    maya_response_text += token
+                                    yield f"event: token\ndata: {json.dumps({'token': token})}\n\n"
+                            except Exception:
+                                continue
                 
                 # 2. Strict Tool Gate & Execution
                 action_results = []
