@@ -311,6 +311,10 @@ def chat():
                             model=model_name,
                             messages=current_messages,
                             temperature=0.7,
+                            # Maya's system prompt is intentionally detailed, while
+                            # responses are short.  Capping completions keeps the
+                            # total request under Groq's TPM allowance.
+                            max_completion_tokens=256,
                             stream=True,
                         )
                         logging.info(f"[AGENT] Connected successfully using model: {model_name}")
